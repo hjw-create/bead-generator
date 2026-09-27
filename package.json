@@ -1,0 +1,16 @@
+{
+  "name": "bead-generator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Hama 兼容 221 色拼豆图纸生成器（本地智能算法）",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "sharp": "^0.35.4",
+    "tesseract.js": "^7.0.0"
+  }
+}

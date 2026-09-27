@@ -1,0 +1,23 @@
+node_modules/
+.env
+*.log
+.DS_Store
+Thumbs.db
+
+# 运行产物 / 调试截图
+output_mard/
+*.traineddata
+_legend*.png
+_leg_*.png
+_pill_*.png
+legend-crop-*.png
+debug-*.png
+_mard_alf.json
+__pycache__/
+*.pyc
+
+# 本地临时脚本（开发调试用，不入库）
+_test-*.mjs
+_tmp_*.js
+_extract-*.mjs
+_gen-*.mjs

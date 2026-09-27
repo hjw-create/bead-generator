@@ -1,0 +1,1645 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>拼豆图纸生成器 · 221色</title>
+  <style>
+    :root {
+      --bg: #f4f4f9;
+      --card: #ffffff;
+      --text: #1a1a2e;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --ai: #7c3aed;
+      --ai-hover: #6d28d9;
+      --danger: #dc2626;
+      --radius: 12px;
+      --shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    .page { max-width: 1200px; margin: 0 auto; padding: 24px 16px 48px; }
+
+    header { margin-bottom: 24px; }
+    header h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; }
+    header p { color: var(--muted); font-size: 0.95rem; margin-top: 4px; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    @media (max-width: 800px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin: 18px 0 10px;
+    }
+
+    .field { margin-bottom: 14px; }
+    .field label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+    .hint { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+
+    .preset-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .preset {
+      width: auto;
+      flex: 1;
+      min-width: 72px;
+      padding: 8px 10px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #f9fafb;
+      color: var(--text);
+    }
+    .preset:hover { background: #eef2ff; border-color: #c7d2fe; }
+    .preset.active {
+      background: #eff6ff;
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .wizard-steps {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .wiz-step {
+      flex: 1;
+      text-align: center;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 6px 4px;
+      border-radius: 6px;
+      background: #f3f4f6;
+      color: var(--muted);
+    }
+    .wiz-step.active {
+      background: #dbeafe;
+      color: var(--accent);
+    }
+    .wiz-step.done {
+      background: #d1fae5;
+      color: #047857;
+    }
+    .legend-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+      max-height: 160px;
+      overflow: auto;
+    }
+    .legend-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: #fff;
+      cursor: default;
+    }
+    .legend-chip button {
+      border: none;
+      background: transparent;
+      color: var(--danger);
+      cursor: pointer;
+      font-size: 0.85rem;
+      line-height: 1;
+      padding: 0 2px;
+    }
+
+    input[type="number"], textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+    }
+    input[type="number"]:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 72px; }
+
+    .file-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 12px;
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      background: #fafafa;
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .file-btn:hover { border-color: var(--accent); color: var(--accent); background: #eff6ff; }
+    .file-btn.has-file {
+      border-style: solid;
+      border-color: #86efac;
+      background: #f0fdf4;
+      color: #166534;
+    }
+    #fileInput { display: none; }
+
+    .preview-thumb {
+      margin-top: 10px;
+      max-width: 100%;
+      max-height: 100px;
+      border-radius: 6px;
+      object-fit: contain;
+      display: none;
+    }
+    .preview-thumb.visible { display: block; }
+
+    .btn-row { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+
+    button {
+      width: 100%;
+      padding: 11px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-secondary { background: #f3f4f6; color: var(--text); }
+    .btn-secondary:hover:not(:disabled) { background: #e5e7eb; }
+    .btn-ai { background: var(--ai); color: #fff; }
+    .btn-ai:hover:not(:disabled) { background: var(--ai-hover); }
+
+    .palette-mini {
+      display: grid;
+      grid-template-columns: repeat(11, 1fr);
+      gap: 2px;
+      max-height: 72px;
+      overflow: hidden;
+      border-radius: 6px;
+    }
+    .swatch { aspect-ratio: 1; border: 1px solid rgba(0,0,0,.08); }
+
+    .msg {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      display: none;
+    }
+    .msg.visible { display: block; }
+    .msg.error { background: #fef2f2; color: var(--danger); }
+    .msg.info { background: #eff6ff; color: #1e40af; }
+    .msg.success { background: #f0fdf4; color: #166534; }
+
+    .canvas-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: auto;
+      background: #fafafa;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      min-height: 280px;
+      padding: 16px;
+    }
+    .canvas-wrap canvas { max-width: 100%; height: auto; }
+    .empty-state { text-align: center; color: var(--muted); font-size: 0.9rem; padding: 40px 16px; }
+
+    .stats { margin-top: 20px; display: none; }
+    .stats.visible { display: block; }
+    .stats h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 8px; }
+    .stats-summary { font-size: 0.85rem; color: var(--muted); margin-bottom: 12px; }
+    .stats-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 8px;
+      list-style: none;
+    }
+    .stats-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      background: #f9fafb;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      border: 2px solid transparent;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+    }
+    .stats-item:hover {
+      background: #eef2ff;
+      border-color: #c7d2fe;
+    }
+    .stats-item.active {
+      background: #eff6ff;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+    }
+    .stats-item.active .stats-name { color: var(--accent); font-weight: 700; }
+    .stats-hint {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin: -4px 0 10px;
+    }
+    .stats-clear {
+      width: auto;
+      display: none;
+      margin-bottom: 10px;
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      background: #f3f4f6;
+      color: var(--text);
+    }
+    .stats-clear.visible { display: inline-block; }
+    .stats-dot {
+      width: 20px; height: 20px; border-radius: 50%;
+      border: 1px solid rgba(0,0,0,.15); flex-shrink: 0;
+    }
+    .stats-name { flex: 1; min-width: 0; font-variant-numeric: tabular-nums; }
+    .stats-count { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    .lut-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      background: #eef2ff;
+      color: #3730a3;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-left: 8px;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>拼豆图纸生成器 <span class="lut-badge" id="lutBadge">221色 · LUT 加载中…</span></h1>
+      <p>Hama 兼容 221 色 · 图片转豆 / 成品图纸识别 · 色号高亮</p>
+    </header>
+
+    <div class="layout">
+      <aside class="card">
+        <h2>操作区</h2>
+
+        <div class="field">
+          <label>工作模式</label>
+          <select id="workMode" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:0.95rem;">
+            <option value="photo" selected>普通图片 → 拼豆图纸</option>
+            <option value="mard">图纸四点识别（CIEDE2000）</option>
+            <option value="chart">成品色号图纸 → OCR 还原</option>
+          </select>
+          <p class="hint" id="modeHint">上传照片/插画后智能像素化。</p>
+        </div>
+
+        <div class="field">
+          <label>上传图片</label>
+          <label class="file-btn" id="fileLabel" for="fileInput">点击选择图片</label>
+          <input type="file" id="fileInput" accept="image/*" />
+          <img id="thumb" class="preview-thumb" alt="原图预览" />
+        </div>
+
+        <div class="field" id="photoGridField">
+          <label for="gridSize">网格大小（N×N）</label>
+          <input type="number" id="gridSize" min="8" max="106" value="106" />
+          <div class="preset-row" id="gridPresets" aria-label="常用底板">
+            <button type="button" class="preset" data-n="29">29 小</button>
+            <button type="button" class="preset" data-n="52">52 中</button>
+            <button type="button" class="preset active" data-n="106">106 大板</button>
+          </div>
+          <p class="hint">短视频常用 106×106 大板；也可点下方快捷切换。</p>
+        </div>
+
+        <div class="field" id="mardField" style="display:none;">
+          <label>格数（列 × 行）</label>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+            <input type="number" id="mardCols" min="8" max="200" value="52" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;" />
+            <span>×</span>
+            <input type="number" id="mardRows" min="8" max="200" value="50" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;" />
+          </div>
+          <p class="hint">在右侧图按 <strong>左上 → 右上 → 右下 → 左下</strong> 点网格四角（可再点同一角附近拖拽微调）。整格平均色用 CIEDE2000 匹配 221 色库。</p>
+          <p class="hint" id="mardPointHint">角点：0 / 4</p>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button type="button" class="btn-secondary" id="btnMardReset" style="flex:1;">重置角点</button>
+            <button type="button" class="btn-primary" id="btnMardRecognize" style="flex:1;" disabled>开始识别</button>
+          </div>
+          <div id="mardEditPanel" style="display:none;margin-top:12px;">
+            <p class="hint">点右侧豆子可改色号；可导出标注图 / 色号表 / 用量。</p>
+            <label>校对画笔色号</label>
+            <select id="mardEditColorId" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;"></select>
+            <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+              <button type="button" class="btn-secondary" id="btnMardExportAnn" style="flex:1;min-width:100px;">导出标注图</button>
+              <button type="button" class="btn-secondary" id="btnMardExportCodes" style="flex:1;min-width:100px;">色号矩阵 txt</button>
+              <button type="button" class="btn-secondary" id="btnMardExportCounts" style="flex:1;min-width:100px;">用量统计 txt</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="field" id="chartGridField" style="display:none;">
+          <div class="wizard-steps" id="wizardSteps">
+            <span class="wiz-step active" data-step="1">1 图例</span>
+            <span class="wiz-step" data-step="2">2 对准网格</span>
+            <span class="wiz-step" data-step="3">3 填格校对</span>
+          </div>
+
+          <div id="wizPanel1">
+            <p class="hint">在右侧图上<strong>拖拽框选底部色号图例</strong>（含色块和 F19 文字），再点识别。用 OCR 读印刷色号，再锁定官方色板。</p>
+            <button type="button" class="btn-primary" id="btnLegendScan" style="width:100%;margin-top:8px;">OCR 识别图例色号</button>
+            <div id="legendChips" class="legend-chips"></div>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <input type="text" id="addLegendId" placeholder="补色号如 A14" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;" />
+              <button type="button" class="btn-secondary" id="btnAddLegend" style="width:auto;padding:8px 12px;">添加</button>
+            </div>
+            <button type="button" class="btn-secondary" id="btnToAlign" style="width:100%;margin-top:10px;" disabled>下一步：对准网格 →</button>
+          </div>
+
+          <div id="wizPanel2" style="display:none;">
+            <label>格数（看图边）</label>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+              <input type="number" id="chartCols" min="8" max="200" value="52" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;" />
+              <span>×</span>
+              <input type="number" id="chartRows" min="8" max="200" value="50" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;" />
+            </div>
+            <label>原点 X <span id="oxVal">0</span></label>
+            <input type="range" id="alignOx" min="0" max="900" value="60" style="width:100%;" />
+            <label>原点 Y <span id="oyVal">0</span></label>
+            <input type="range" id="alignOy" min="0" max="900" value="60" style="width:100%;" />
+            <label>格宽 <span id="cwVal">14</span>px</label>
+            <input type="range" id="alignCw" min="4" max="40" step="0.1" value="14" style="width:100%;" />
+            <label>格高 <span id="chVal">14</span>px</label>
+            <input type="range" id="alignCh" min="4" max="40" step="0.1" value="14" style="width:100%;" />
+            <p class="hint">关键：橙线必须对齐印刷格子，对不准则会花、会破洞。拖红十字移动原点。</p>
+            <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-top:8px;">
+              <input type="checkbox" id="allowEmpty" />
+              允许空钉孔（默认关闭＝整板铺满，空白处用 H1）
+            </label>
+            <div style="display:flex;gap:8px;margin-top:10px;">
+              <button type="button" class="btn-secondary" id="btnBackLegend" style="flex:1;">← 图例</button>
+              <button type="button" class="btn-primary" id="btnFillGrid" style="flex:1;">开始填格</button>
+            </div>
+          </div>
+
+          <div id="wizPanel3" style="display:none;">
+            <p class="hint">整板已生成。点右侧豆子改色号（用锁定图例）；点空钉孔可铺豆。</p>
+            <label>校对画笔色号</label>
+            <select id="editColorId" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;"></select>
+            <label style="display:flex;align-items:center;gap:8px;font-weight:500;">
+              <input type="checkbox" id="editAsEmpty" />
+              画空位（擦除豆子）
+            </label>
+            <button type="button" class="btn-secondary" id="btnBackAlign" style="width:100%;margin-top:10px;">← 重新对准/填格</button>
+          </div>
+        </div>
+
+        <div class="field" id="photoOptsField">
+          <label for="pixelMode">采样模式</label>
+          <select id="pixelMode" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:0.95rem;">
+            <option value="dominant" selected>主导色（卡通，少毛边）</option>
+            <option value="average">平均色（写实）</option>
+          </select>
+        </div>
+
+        <div class="field" id="mergeField">
+          <label for="mergeThreshold">杂色合并阈值 <span id="mergeVal">28</span></label>
+          <input type="range" id="mergeThreshold" min="0" max="60" value="28" style="width:100%;" />
+          <p class="hint">0=不合并；越大色块越干净（参考 Zippland BFS 合并）。</p>
+        </div>
+
+        <div class="field" id="removeBgField">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:500;">
+            <input type="checkbox" id="removeBg" checked />
+            自动去除边缘背景
+          </label>
+        </div>
+
+        <div class="field">
+          <label>色板预览（221 色节选）</label>
+          <div class="palette-mini" id="palette"></div>
+        </div>
+
+        <div class="btn-row">
+          <button type="button" class="btn-primary" id="btnLocal">智能生成图纸</button>
+          <button type="button" class="btn-secondary" id="btnExport" disabled>导出图纸（含图例）</button>
+        </div>
+
+        <div class="msg" id="msg" role="status"></div>
+      </aside>
+
+      <section class="card">
+        <h2>预览区</h2>
+        <div class="canvas-wrap" id="canvasWrap">
+          <div class="empty-state" id="emptyState">上传图片后：智能生成，或切换「四点识别 / OCR 还原」</div>
+          <canvas id="workCanvas" style="display:none;max-width:100%;cursor:crosshair;"></canvas>
+          <canvas id="outputCanvas" style="display:none"></canvas>
+        </div>
+        <div class="stats" id="stats">
+          <h3>颜色统计</h3>
+          <p class="stats-summary" id="statsSummary"></p>
+          <p class="stats-hint">点击下方色号：仅高亮该色豆子；再点一次取消。</p>
+          <button type="button" class="stats-clear" id="btnClearHighlight">清除高亮（显示全部）</button>
+          <ul class="stats-list" id="statsList"></ul>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      HAMA_COLORS,
+      colorById,
+      hexToRgb,
+      buildColorLUT,
+      LUT_BITS,
+    } from "./hamaColors.js";
+    import { imageToBeadGrid } from "./pixelation.js";
+    import {
+      extractLegendFromRect,
+      fillGridFromAlign,
+      imageToImageData,
+    } from "./chartImport.js";
+    import { mergeLegendIds } from "./legendCodes.js";
+    import {
+      recognizeMardChart,
+      codesMatrixText,
+      beadCountsText,
+      renderAnnotatedCanvas,
+      downloadText,
+      downloadCanvasPng,
+    } from "./mardChartWeb.js";
+    import { SORTED_IDS } from "./mardMatch.js";
+
+    const GAP = 2;
+    const PAD = 8;
+    /** 预览/导出单格边长：大板自动缩小，避免 106 卡顿 */
+    function cellSizeFor(n) {
+      if (n >= 90) return 8;
+      if (n >= 60) return 10;
+      if (n >= 40) return 14;
+      return 18;
+    }
+    /** 导出图例行高 */
+    const LEGEND_ROW = 22;
+    const LEGEND_PAD = 16;
+
+    const fileInput = document.getElementById("fileInput");
+    const fileLabel = document.getElementById("fileLabel");
+    const thumb = document.getElementById("thumb");
+    const gridSizeInput = document.getElementById("gridSize");
+    const btnLocal = document.getElementById("btnLocal");
+    const btnExport = document.getElementById("btnExport");
+    const workMode = document.getElementById("workMode");
+    const modeHint = document.getElementById("modeHint");
+    const photoGridField = document.getElementById("photoGridField");
+    const chartGridField = document.getElementById("chartGridField");
+    const mardField = document.getElementById("mardField");
+    const photoOptsField = document.getElementById("photoOptsField");
+    const mergeField = document.getElementById("mergeField");
+    const removeBgField = document.getElementById("removeBgField");
+    const chartCols = document.getElementById("chartCols");
+    const chartRows = document.getElementById("chartRows");
+    const mardCols = document.getElementById("mardCols");
+    const mardRows = document.getElementById("mardRows");
+    const mardPointHint = document.getElementById("mardPointHint");
+    const btnMardReset = document.getElementById("btnMardReset");
+    const btnMardRecognize = document.getElementById("btnMardRecognize");
+    const mardEditPanel = document.getElementById("mardEditPanel");
+    const mardEditColorId = document.getElementById("mardEditColorId");
+    const btnMardExportAnn = document.getElementById("btnMardExportAnn");
+    const btnMardExportCodes = document.getElementById("btnMardExportCodes");
+    const btnMardExportCounts = document.getElementById("btnMardExportCounts");
+    const pixelMode = document.getElementById("pixelMode");
+    const mergeThreshold = document.getElementById("mergeThreshold");
+    const mergeVal = document.getElementById("mergeVal");
+    const removeBg = document.getElementById("removeBg");
+    const msgEl = document.getElementById("msg");
+    const workCanvas = document.getElementById("workCanvas");
+    const workCtx = workCanvas.getContext("2d");
+    const btnLegendScan = document.getElementById("btnLegendScan");
+    const btnToAlign = document.getElementById("btnToAlign");
+    const btnFillGrid = document.getElementById("btnFillGrid");
+    const btnBackLegend = document.getElementById("btnBackLegend");
+    const btnBackAlign = document.getElementById("btnBackAlign");
+    const legendChips = document.getElementById("legendChips");
+    const addLegendId = document.getElementById("addLegendId");
+    const btnAddLegend = document.getElementById("btnAddLegend");
+    const alignOx = document.getElementById("alignOx");
+    const alignOy = document.getElementById("alignOy");
+    const alignCw = document.getElementById("alignCw");
+    const alignCh = document.getElementById("alignCh");
+    const editColorId = document.getElementById("editColorId");
+    const editAsEmpty = document.getElementById("editAsEmpty");
+    const allowEmpty = document.getElementById("allowEmpty");
+
+    /** @type {HTMLImageElement|null} */
+    let sourceImage = null;
+    /** @type {string|null} */
+    let sourceDataUrl = null;
+    /**
+     * @type {{ cols: number, rows: number, cells: (string|null)[][] } | null}
+     */
+    let pattern = null;
+
+    /** @type {string[]} 锁定的图例色号 */
+    let lockedLegendIds = [];
+    /** @type {1|2|3} */
+    let wizStep = 1;
+    /** 图例框选（原图像素） */
+    let legendRect = null;
+    let dragStart = null;
+    /** 原图 ImageData 缓存 */
+    let sourceImageData = null;
+    /** 显示缩放：workCanvas 显示宽 / 原图宽 */
+    let viewScale = 1;
+    /** 拖动网格原点 */
+    let draggingOrigin = false;
+    /** 四点识别：原图像素坐标 [[x,y],...] */
+    let mardPoints = [];
+    let mardDragIdx = -1;
+    /** @type {ImageData|null} 矫正后图，供标注导出 */
+    let mardWarped = null;
+
+    const canvas = document.getElementById("outputCanvas");
+    const ctx = canvas.getContext("2d");
+    const canvasWrap = document.getElementById("canvasWrap");
+    const emptyState = document.getElementById("emptyState");
+    const statsEl = document.getElementById("stats");
+    const statsSummary = document.getElementById("statsSummary");
+    const statsList = document.getElementById("statsList");
+    const lutBadge = document.getElementById("lutBadge");
+    const btnClearHighlight = document.getElementById("btnClearHighlight");
+    /** @type {string|null} */
+    let highlightColorId = null;
+
+    mergeThreshold.addEventListener("input", () => {
+      mergeVal.textContent = mergeThreshold.value;
+    });
+
+    function showMsg(text, type = "info") {
+      msgEl.textContent = text;
+      msgEl.className = `msg visible ${type}`;
+    }
+    function clearMsg() {
+      msgEl.className = "msg";
+      msgEl.textContent = "";
+    }
+
+    function setWizStep(step) {
+      wizStep = step;
+      document.getElementById("wizPanel1").style.display = step === 1 ? "block" : "none";
+      document.getElementById("wizPanel2").style.display = step === 2 ? "block" : "none";
+      document.getElementById("wizPanel3").style.display = step === 3 ? "block" : "none";
+      document.querySelectorAll(".wiz-step").forEach((el) => {
+        const s = Number(el.dataset.step);
+        el.classList.toggle("active", s === step);
+        el.classList.toggle("done", s < step);
+      });
+      if (step < 3) {
+        canvas.style.display = "none";
+        if (sourceImage) {
+          showWorkCanvas();
+          drawWorkOverlay();
+        }
+      } else {
+        workCanvas.style.display = "none";
+        if (pattern) renderPattern(pattern, false);
+      }
+    }
+
+    function showWorkCanvas() {
+      if (!sourceImage) return;
+      emptyState.style.display = "none";
+      canvas.style.display = "none";
+      workCanvas.style.display = "block";
+      const maxW = Math.min(900, canvasWrap.clientWidth || 700);
+      viewScale = maxW / sourceImage.naturalWidth;
+      workCanvas.width = Math.round(sourceImage.naturalWidth * viewScale);
+      workCanvas.height = Math.round(sourceImage.naturalHeight * viewScale);
+    }
+
+    function drawWorkOverlay() {
+      if (!sourceImage || workCanvas.style.display === "none") return;
+      const w = workCanvas.width;
+      const h = workCanvas.height;
+      workCtx.clearRect(0, 0, w, h);
+      workCtx.drawImage(sourceImage, 0, 0, w, h);
+
+      if (workMode.value === "chart" && wizStep === 1 && legendRect) {
+        workCtx.strokeStyle = "#2563eb";
+        workCtx.lineWidth = 2;
+        workCtx.setLineDash([6, 4]);
+        workCtx.strokeRect(
+          legendRect.x * viewScale,
+          legendRect.y * viewScale,
+          legendRect.w * viewScale,
+          legendRect.h * viewScale
+        );
+        workCtx.setLineDash([]);
+        workCtx.fillStyle = "rgba(37,99,235,0.12)";
+        workCtx.fillRect(
+          legendRect.x * viewScale,
+          legendRect.y * viewScale,
+          legendRect.w * viewScale,
+          legendRect.h * viewScale
+        );
+      }
+
+      if (workMode.value === "chart" && wizStep === 2) {
+        const cols = Number(chartCols.value) || 52;
+        const rows = Number(chartRows.value) || 50;
+        const ox = Number(alignOx.value) * viewScale;
+        const oy = Number(alignOy.value) * viewScale;
+        const cw = Number(alignCw.value) * viewScale;
+        const ch = Number(alignCh.value) * viewScale;
+        workCtx.strokeStyle = "rgba(249,115,22,0.85)";
+        workCtx.lineWidth = 1;
+        for (let i = 0; i <= cols; i++) {
+          const x = ox + i * cw;
+          workCtx.beginPath();
+          workCtx.moveTo(x, oy);
+          workCtx.lineTo(x, oy + rows * ch);
+          workCtx.stroke();
+        }
+        for (let j = 0; j <= rows; j++) {
+          const y = oy + j * ch;
+          workCtx.beginPath();
+          workCtx.moveTo(ox, y);
+          workCtx.lineTo(ox + cols * cw, y);
+          workCtx.stroke();
+        }
+        // 粗线每 5 格
+        workCtx.strokeStyle = "rgba(220,38,38,0.9)";
+        workCtx.lineWidth = 1.5;
+        for (let i = 0; i <= cols; i += 5) {
+          const x = ox + i * cw;
+          workCtx.beginPath();
+          workCtx.moveTo(x, oy);
+          workCtx.lineTo(x, oy + rows * ch);
+          workCtx.stroke();
+        }
+        for (let j = 0; j <= rows; j += 5) {
+          const y = oy + j * ch;
+          workCtx.beginPath();
+          workCtx.moveTo(ox, y);
+          workCtx.lineTo(ox + cols * cw, y);
+          workCtx.stroke();
+        }
+        // 原点准星
+        workCtx.strokeStyle = "#dc2626";
+        workCtx.lineWidth = 2;
+        workCtx.beginPath();
+        workCtx.moveTo(ox - 10, oy);
+        workCtx.lineTo(ox + 10, oy);
+        workCtx.moveTo(ox, oy - 10);
+        workCtx.lineTo(ox, oy + 10);
+        workCtx.stroke();
+      }
+
+      if (workMode.value === "mard" && mardPoints.length) {
+        const labels = ["1左上", "2右上", "3右下", "4左下"];
+        for (let i = 0; i < mardPoints.length; i++) {
+          const [x, y] = mardPoints[i];
+          const sx = x * viewScale;
+          const sy = y * viewScale;
+          workCtx.fillStyle = i === mardDragIdx ? "#dc2626" : "#16a34a";
+          workCtx.beginPath();
+          workCtx.arc(sx, sy, 8, 0, Math.PI * 2);
+          workCtx.fill();
+          workCtx.fillStyle = "#0f172a";
+          workCtx.font = "12px sans-serif";
+          workCtx.fillText(labels[i] || String(i + 1), sx + 10, sy - 8);
+        }
+        if (mardPoints.length >= 2) {
+          workCtx.strokeStyle = "#f97316";
+          workCtx.lineWidth = 2;
+          workCtx.beginPath();
+          workCtx.moveTo(mardPoints[0][0] * viewScale, mardPoints[0][1] * viewScale);
+          for (let i = 1; i < mardPoints.length; i++) {
+            workCtx.lineTo(mardPoints[i][0] * viewScale, mardPoints[i][1] * viewScale);
+          }
+          if (mardPoints.length === 4) {
+            workCtx.lineTo(mardPoints[0][0] * viewScale, mardPoints[0][1] * viewScale);
+          }
+          workCtx.stroke();
+        }
+      }
+    }
+
+    function canvasToImagePos(e) {
+      const rect = workCanvas.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * sourceImage.naturalWidth;
+      const y = ((e.clientY - rect.top) / rect.height) * sourceImage.naturalHeight;
+      return { x, y };
+    }
+
+    function renderLegendChips() {
+      legendChips.innerHTML = "";
+      lockedLegendIds.forEach((id) => {
+        const c = colorById[id];
+        if (!c) return;
+        const chip = document.createElement("span");
+        chip.className = "legend-chip";
+        chip.innerHTML = `<i style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${c.hex};border:1px solid #ccc"></i>${id}`;
+        const rm = document.createElement("button");
+        rm.type = "button";
+        rm.textContent = "×";
+        rm.title = "移除";
+        rm.addEventListener("click", () => {
+          lockedLegendIds = lockedLegendIds.filter((x) => x !== id);
+          renderLegendChips();
+          syncEditColorSelect();
+          btnToAlign.disabled = lockedLegendIds.length < 1;
+        });
+        chip.appendChild(rm);
+        legendChips.appendChild(chip);
+      });
+      btnToAlign.disabled = lockedLegendIds.length < 1;
+      syncEditColorSelect();
+    }
+
+    function syncEditColorSelect() {
+      editColorId.innerHTML = "";
+      lockedLegendIds.forEach((id) => {
+        const c = colorById[id];
+        if (!c) return;
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = `${id} ${c.hex}`;
+        editColorId.appendChild(opt);
+      });
+    }
+
+    function syncAlignLabels() {
+      document.getElementById("oxVal").textContent = alignOx.value;
+      document.getElementById("oyVal").textContent = alignOy.value;
+      document.getElementById("cwVal").textContent = Number(alignCw.value).toFixed(1);
+      document.getElementById("chVal").textContent = Number(alignCh.value).toFixed(1);
+    }
+
+    function initAlignDefaults() {
+      if (!sourceImage) return;
+      const iw = sourceImage.naturalWidth;
+      const ih = sourceImage.naturalHeight;
+      const cols = Number(chartCols.value) || 52;
+      const rows = Number(chartRows.value) || 50;
+      const marginX = Math.round(iw * 0.065);
+      const marginY = Math.round(ih * 0.065);
+      const legendH = Math.round(ih * 0.14);
+      const gridW = iw - marginX * 2;
+      const gridH = ih - marginY * 2 - legendH;
+      alignOx.max = String(iw);
+      alignOy.max = String(ih);
+      alignOx.value = String(marginX);
+      alignOy.value = String(marginY);
+      alignCw.max = "80";
+      alignCh.max = "80";
+      alignCw.value = String((gridW / cols).toFixed(1));
+      alignCh.value = String((gridH / rows).toFixed(1));
+      syncAlignLabels();
+    }
+
+    function syncWorkMode() {
+      const mode = workMode.value;
+      const chart = mode === "chart";
+      const mard = mode === "mard";
+      const photo = mode === "photo";
+      photoGridField.style.display = photo ? "block" : "none";
+      chartGridField.style.display = chart ? "block" : "none";
+      mardField.style.display = mard ? "block" : "none";
+      photoOptsField.style.display = photo ? "block" : "none";
+      mergeField.style.display = photo ? "block" : "none";
+      removeBgField.style.display = photo ? "block" : "none";
+      btnLocal.style.display = photo ? "inline-flex" : "none";
+      modeHint.textContent = mard
+        ? "点网格四角 → CIEDE2000 匹配色号 → 校对导出。"
+        : chart
+          ? "拼豆大王流程：框选图例 → 对准网格 → 填格后点格校对。"
+          : "上传照片/插画后智能像素化。";
+      if (chart && sourceImage) {
+        setWizStep(1);
+      } else if (mard && sourceImage) {
+        showWorkCanvas();
+        drawWorkOverlay();
+        updateMardPointUi();
+      } else if (photo) {
+        workCanvas.style.display = "none";
+      }
+    }
+
+    function updateMardPointUi() {
+      mardPointHint.textContent = `角点：${mardPoints.length} / 4`;
+      btnMardRecognize.disabled = mardPoints.length !== 4;
+    }
+
+    function fillMardEditSelect(usedIds) {
+      const set = new Set(usedIds || []);
+      const ids = [
+        ...SORTED_IDS.filter((id) => set.has(id)),
+        ...SORTED_IDS.filter((id) => !set.has(id)),
+      ];
+      mardEditColorId.innerHTML = "";
+      for (const id of ids.slice(0, 80)) {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = set.has(id) ? `${id} · 已用` : id;
+        mardEditColorId.appendChild(opt);
+      }
+    }
+
+    // ---------- 向导事件 ----------
+    btnLegendScan.addEventListener("click", async () => {
+      if (!sourceImage) {
+        showMsg("请先上传图纸。", "error");
+        return;
+      }
+      if (!legendRect || legendRect.w < 8 || legendRect.h < 8) {
+        showMsg("请先在右侧图上拖拽框选底部图例区域（要框住色号文字）。", "error");
+        return;
+      }
+      btnLegendScan.disabled = true;
+      showMsg("正在 OCR 读图例色号…", "info");
+      try {
+        if (!sourceImageData) sourceImageData = imageToImageData(sourceImage);
+        const colorPart = extractLegendFromRect(sourceImageData, legendRect);
+
+        // 裁切图例送服务端 OCR
+        const c = document.createElement("canvas");
+        const x = Math.max(0, Math.floor(legendRect.x));
+        const y = Math.max(0, Math.floor(legendRect.y));
+        const w = Math.min(
+          sourceImage.naturalWidth - x,
+          Math.ceil(legendRect.w)
+        );
+        const h = Math.min(
+          sourceImage.naturalHeight - y,
+          Math.ceil(legendRect.h)
+        );
+        c.width = w;
+        c.height = h;
+        c.getContext("2d").drawImage(sourceImage, x, y, w, h, 0, 0, w, h);
+        const dataUrl = c.toDataURL("image/png");
+
+        let ocrIds = [];
+        let ocrNote = "";
+        try {
+          const r = await fetch("/api/ocr-legend", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ imageBase64: dataUrl }),
+          });
+          const json = await r.json();
+          if (json.success && Array.isArray(json.ids)) {
+            ocrIds = json.ids;
+            ocrNote = json.message || "";
+          } else {
+            ocrNote = json.message || "OCR 无结果";
+          }
+        } catch (e) {
+          ocrNote = "OCR 请求失败，仅用色块兜底";
+        }
+
+        lockedLegendIds = mergeLegendIds(ocrIds, colorPart.ids);
+        if (!lockedLegendIds.length) {
+          showMsg("未识别出色号。请放大框选图例（含文字如 F19），或手动添加。", "error");
+          return;
+        }
+        renderLegendChips();
+        const via =
+          ocrIds.length >= 4
+            ? `OCR ${ocrIds.length} 色`
+            : `OCR ${ocrIds.length} + 色块补全`;
+        showMsg(
+          `已锁定 ${lockedLegendIds.length} 色（${via}）：${lockedLegendIds.join("、")}。请核对后下一步。${ocrNote ? " " + ocrNote : ""}`,
+          "success"
+        );
+      } catch (err) {
+        showMsg("图例识别失败：" + (err.message || "未知错误"), "error");
+      } finally {
+        btnLegendScan.disabled = false;
+      }
+    });
+
+    btnAddLegend.addEventListener("click", () => {
+      const id = String(addLegendId.value || "").trim().toUpperCase();
+      if (!id || !colorById[id]) {
+        showMsg("色号无效，请输入色板中存在的号（如 F19）。", "error");
+        return;
+      }
+      if (!lockedLegendIds.includes(id)) lockedLegendIds.push(id);
+      addLegendId.value = "";
+      renderLegendChips();
+    });
+
+    btnToAlign.addEventListener("click", () => {
+      if (lockedLegendIds.length < 1) {
+        showMsg("请先锁定至少一个图例色号。", "error");
+        return;
+      }
+      initAlignDefaults();
+      setWizStep(2);
+      showMsg("拖动滑块或拖红十字，让橙线对齐图纸格子。", "info");
+    });
+
+    btnBackLegend.addEventListener("click", () => setWizStep(1));
+    btnBackAlign.addEventListener("click", () => setWizStep(2));
+
+    function onAlignChange() {
+      syncAlignLabels();
+      drawWorkOverlay();
+    }
+    alignOx.addEventListener("input", onAlignChange);
+    alignOy.addEventListener("input", onAlignChange);
+    alignCw.addEventListener("input", onAlignChange);
+    alignCh.addEventListener("input", onAlignChange);
+    chartCols.addEventListener("change", () => {
+      initAlignDefaults();
+      drawWorkOverlay();
+    });
+    chartRows.addEventListener("change", () => {
+      initAlignDefaults();
+      drawWorkOverlay();
+    });
+
+    btnFillGrid.addEventListener("click", () => {
+      if (!sourceImage) return;
+      const colsN = Number(chartCols.value);
+      const rowsN = Number(chartRows.value);
+      if (
+        !Number.isInteger(colsN) ||
+        !Number.isInteger(rowsN) ||
+        colsN < 8 ||
+        rowsN < 8
+      ) {
+        showMsg("格数需为 8–200 整数。", "error");
+        return;
+      }
+      try {
+        if (!sourceImageData) sourceImageData = imageToImageData(sourceImage);
+        const t0 = performance.now();
+        const result = fillGridFromAlign(sourceImageData, {
+          originX: Number(alignOx.value),
+          originY: Number(alignOy.value),
+          cellW: Number(alignCw.value),
+          cellH: Number(alignCh.value),
+          cols: colsN,
+          rows: rowsN,
+          paletteIds: lockedLegendIds,
+          allowEmpty: false,
+          refine: true,
+        });
+        // 回写微调后的原点，方便再对准
+        if (result.originX != null) {
+          alignOx.value = String(Math.round(result.originX));
+          alignOy.value = String(Math.round(result.originY));
+          syncAlignLabels();
+        }
+        pattern = { cols: result.cols, rows: result.rows, cells: result.cells };
+        highlightColorId = null;
+        setWizStep(3);
+        const beads = result.cells.flat().filter(Boolean).length;
+        showMsg(
+          `填格完成：${result.cols}×${result.rows}，铺豆 ${beads}，空位 ${result.cols * result.rows - beads}，${(performance.now() - t0).toFixed(0)}ms。点格子可改色。`,
+          "success"
+        );
+      } catch (err) {
+        showMsg("填格失败：" + (err.message || "未知错误"), "error");
+      }
+    });
+
+    workCanvas.addEventListener("mousedown", (e) => {
+      if (!sourceImage) return;
+      const p = canvasToImagePos(e);
+      if (workMode.value === "mard") {
+        const hitR2 = (14 / viewScale) ** 2;
+        let hit = -1;
+        for (let i = 0; i < mardPoints.length; i++) {
+          const dx = mardPoints[i][0] - p.x;
+          const dy = mardPoints[i][1] - p.y;
+          if (dx * dx + dy * dy <= hitR2) {
+            hit = i;
+            break;
+          }
+        }
+        if (hit >= 0) {
+          mardDragIdx = hit;
+        } else if (mardPoints.length < 4) {
+          mardPoints.push([p.x, p.y]);
+          mardDragIdx = mardPoints.length - 1;
+          updateMardPointUi();
+        }
+        drawWorkOverlay();
+        return;
+      }
+      if (workMode.value !== "chart") return;
+      if (wizStep === 1) {
+        dragStart = p;
+        legendRect = { x: p.x, y: p.y, w: 0, h: 0 };
+      } else if (wizStep === 2) {
+        draggingOrigin = true;
+        alignOx.value = String(Math.round(p.x));
+        alignOy.value = String(Math.round(p.y));
+        onAlignChange();
+      }
+    });
+    workCanvas.addEventListener("mousemove", (e) => {
+      if (!sourceImage) return;
+      const p = canvasToImagePos(e);
+      if (workMode.value === "mard" && mardDragIdx >= 0) {
+        mardPoints[mardDragIdx] = [p.x, p.y];
+        drawWorkOverlay();
+        return;
+      }
+      if (workMode.value !== "chart") return;
+      if (wizStep === 1 && dragStart) {
+        legendRect = {
+          x: Math.min(dragStart.x, p.x),
+          y: Math.min(dragStart.y, p.y),
+          w: Math.abs(p.x - dragStart.x),
+          h: Math.abs(p.y - dragStart.y),
+        };
+        drawWorkOverlay();
+      } else if (wizStep === 2 && draggingOrigin) {
+        alignOx.value = String(Math.round(p.x));
+        alignOy.value = String(Math.round(p.y));
+        onAlignChange();
+      }
+    });
+    window.addEventListener("mouseup", () => {
+      dragStart = null;
+      draggingOrigin = false;
+      mardDragIdx = -1;
+    });
+
+    // 校对：点豆板改色
+    canvas.addEventListener("click", (e) => {
+      const canEdit =
+        (workMode.value === "chart" && wizStep === 3) ||
+        (workMode.value === "mard" && !!pattern);
+      if (!canEdit || !pattern) return;
+      const cols = pattern.cols;
+      const rows = pattern.rows;
+      const CELL = cellSizeFor(Math.max(cols, rows));
+      const boardW = PAD * 2 + cols * CELL + (cols - 1) * GAP;
+      const boardH = PAD * 2 + rows * CELL + (rows - 1) * GAP;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const mx = (e.clientX - rect.left) * scaleX;
+      const my = (e.clientY - rect.top) * scaleY;
+      if (mx < 0 || my < 0 || mx > boardW || my > boardH) return;
+      const x = Math.floor((mx - PAD) / (CELL + GAP));
+      const y = Math.floor((my - PAD) / (CELL + GAP));
+      if (x < 0 || y < 0 || x >= cols || y >= rows) return;
+      let id;
+      if (workMode.value === "mard") {
+        id = mardEditColorId.value || null;
+      } else {
+        id = editAsEmpty.checked ? null : editColorId.value || null;
+        if (!editAsEmpty.checked && id && !colorById[id]) return;
+      }
+      pattern.cells[y][x] = id;
+      highlightColorId = null;
+      renderPattern(pattern, false);
+    });
+
+    btnMardReset.addEventListener("click", () => {
+      mardPoints = [];
+      mardWarped = null;
+      mardEditPanel.style.display = "none";
+      updateMardPointUi();
+      if (sourceImage && workMode.value === "mard") {
+        showWorkCanvas();
+        drawWorkOverlay();
+      }
+      showMsg("角点已重置。", "info");
+    });
+
+    btnMardRecognize.addEventListener("click", () => {
+      if (!sourceImage || mardPoints.length !== 4) {
+        showMsg("请先点齐四个角。", "error");
+        return;
+      }
+      const colsN = Number(mardCols.value);
+      const rowsN = Number(mardRows.value);
+      if (
+        !Number.isInteger(colsN) ||
+        !Number.isInteger(rowsN) ||
+        colsN < 8 ||
+        rowsN < 8
+      ) {
+        showMsg("格数需为 8–200 整数。", "error");
+        return;
+      }
+      btnMardRecognize.disabled = true;
+      showMsg("透视矫正并识别中…", "info");
+      setTimeout(() => {
+        try {
+          if (!sourceImageData) sourceImageData = imageToImageData(sourceImage);
+          const t0 = performance.now();
+          const result = recognizeMardChart(sourceImageData, {
+            points: mardPoints.map((p) => [p[0], p[1]]),
+            cols: colsN,
+            rows: rowsN,
+            onProgress: (r, rows) => {
+              if (r % 10 === 0 || r === rows) {
+                showMsg(`识别进度 ${r}/${rows}…`, "info");
+              }
+            },
+          });
+          pattern = { cols: result.cols, rows: result.rows, cells: result.cells };
+          mardWarped = result.warped;
+          highlightColorId = null;
+          workCanvas.style.display = "none";
+          fillMardEditSelect([...new Set(result.cells.flat())]);
+          mardEditPanel.style.display = "block";
+          renderPattern(pattern, false);
+          const beads = result.cells.flat().filter(Boolean).length;
+          const colors = new Set(result.cells.flat()).size;
+          showMsg(
+            `识别完成：${result.cols}×${result.rows}，${beads} 格，${colors} 色，${(performance.now() - t0).toFixed(0)}ms。可点格改色或导出。`,
+            "success"
+          );
+        } catch (err) {
+          console.error(err);
+          showMsg("识别失败：" + (err.message || "未知错误"), "error");
+        } finally {
+          updateMardPointUi();
+        }
+      }, 30);
+    });
+
+    btnMardExportAnn.addEventListener("click", () => {
+      if (!pattern || !mardWarped) {
+        showMsg("请先完成识别。", "error");
+        return;
+      }
+      const ann = renderAnnotatedCanvas(
+        mardWarped,
+        pattern.cells,
+        pattern.cols,
+        pattern.rows
+      );
+      downloadCanvasPng(ann, "chart_annotated.png");
+      showMsg("已导出标注图 chart_annotated.png", "success");
+    });
+    btnMardExportCodes.addEventListener("click", () => {
+      if (!pattern) return;
+      downloadText(
+        "codes_matrix.txt",
+        codesMatrixText(pattern.cells, pattern.cols, pattern.rows)
+      );
+      showMsg("已导出 codes_matrix.txt", "success");
+    });
+    btnMardExportCounts.addEventListener("click", () => {
+      if (!pattern) return;
+      downloadText("bead_counts.txt", beadCountsText(pattern.cells));
+      showMsg("已导出 bead_counts.txt", "success");
+    });
+
+    workMode.addEventListener("change", syncWorkMode);
+
+    // 常用底板快捷切换（29 / 52 / 106）
+    const gridPresets = document.getElementById("gridPresets");
+    function syncPresetActive() {
+      const n = Number(gridSizeInput.value);
+      gridPresets.querySelectorAll(".preset").forEach((btn) => {
+        btn.classList.toggle("active", Number(btn.dataset.n) === n);
+      });
+    }
+    gridPresets.addEventListener("click", (e) => {
+      const btn = e.target.closest(".preset");
+      if (!btn) return;
+      gridSizeInput.value = btn.dataset.n;
+      syncPresetActive();
+    });
+    gridSizeInput.addEventListener("input", syncPresetActive);
+
+    // 色板缩略
+    const paletteEl = document.getElementById("palette");
+    HAMA_COLORS.slice(0, 66).forEach((c) => {
+      const d = document.createElement("div");
+      d.className = "swatch";
+      d.style.background = c.hex;
+      d.title = `${c.id} ${c.hex}`;
+      paletteEl.appendChild(d);
+    });
+
+    const t0 = performance.now();
+    buildColorLUT();
+    lutBadge.textContent = `221色 · ${LUT_BITS}-bit LUT ${(performance.now() - t0).toFixed(0)}ms`;
+    showMsg("上传图片后：可选「普通生成 / 四点 CIEDE 识别 / OCR 还原」。", "info");
+    syncWorkMode();
+
+    function getValidGridSize() {
+      const n = Number(gridSizeInput.value);
+      if (!Number.isInteger(n) || n < 8 || n > 106) {
+        showMsg("网格大小需为 8–106 的整数（106 为大板）。", "error");
+        return null;
+      }
+      return n;
+    }
+
+    // ---------- 上传 ----------
+    fileInput.addEventListener("change", () => {
+      clearMsg();
+      resetPreviewSoft();
+      const file = fileInput.files?.[0];
+      if (!file) {
+        sourceImage = null;
+        sourceDataUrl = null;
+        sourceImageData = null;
+        fileLabel.classList.remove("has-file");
+        fileLabel.textContent = "点击选择图片";
+        thumb.classList.remove("visible");
+        return;
+      }
+      if (!file.type.startsWith("image/")) {
+        showMsg("请选择有效图片文件。", "error");
+        fileInput.value = "";
+        return;
+      }
+      const reader = new FileReader();
+      reader.onerror = () => showMsg("读取图片失败。", "error");
+      reader.onload = (e) => {
+        const dataUrl = /** @type {string} */ (e.target.result);
+        const img = new Image();
+        img.onload = () => {
+          sourceImage = img;
+          sourceDataUrl = dataUrl;
+          sourceImageData = null;
+          legendRect = null;
+          lockedLegendIds = [];
+          renderLegendChips();
+          thumb.src = dataUrl;
+          thumb.classList.add("visible");
+          fileLabel.classList.add("has-file");
+          fileLabel.textContent = file.name;
+          if (workMode.value === "chart") {
+            setWizStep(1);
+            showMsg("在右侧拖拽框选底部图例，再点「识别图例色号」。", "success");
+          } else if (workMode.value === "mard") {
+            mardPoints = [];
+            mardWarped = null;
+            mardEditPanel.style.display = "none";
+            updateMardPointUi();
+            showWorkCanvas();
+            drawWorkOverlay();
+            showMsg("按左上→右上→右下→左下点四个角，再点「开始识别」。", "success");
+          } else {
+            showMsg("图片已加载，可点「智能生成图纸」。", "success");
+          }
+        };
+        img.onerror = () => showMsg("图片解析失败。", "error");
+        img.src = dataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    function resetPreviewSoft() {
+      pattern = null;
+      highlightColorId = null;
+      btnExport.disabled = true;
+      statsEl.classList.remove("visible");
+      btnClearHighlight.classList.remove("visible");
+      canvas.style.display = "none";
+      workCanvas.style.display = "none";
+      emptyState.style.display = "block";
+    }
+
+    // ---------- 普通图片生成 ----------
+    btnLocal.addEventListener("click", () => {
+      clearMsg();
+      if (!sourceImage) {
+        showMsg("请先上传一张图片。", "error");
+        return;
+      }
+      try {
+        const t0gen = performance.now();
+        const gridSize = getValidGridSize();
+        if (gridSize === null) return;
+        const cells = imageToBeadGrid(sourceImage, gridSize, gridSize, {
+          mode: pixelMode.value === "average" ? "average" : "dominant",
+          mergeThreshold: Number(mergeThreshold.value),
+          removeBackground: removeBg.checked,
+        });
+        pattern = { cols: gridSize, rows: gridSize, cells };
+        highlightColorId = null;
+        workCanvas.style.display = "none";
+        renderPattern(pattern, false);
+        const beads = cells.flat().filter(Boolean).length;
+        showMsg(
+          `智能生成完成：${gridSize}×${gridSize}，${beads} 颗豆，${(performance.now() - t0gen).toFixed(0)}ms。`,
+          "success"
+        );
+      } catch (err) {
+        console.error(err);
+        showMsg("生成失败：" + (err.message || "未知错误"), "error");
+      }
+    });
+
+    // ---------- 仿真圆豆渲染 ----------
+
+    /**
+     * @param {{ cols?: number, rows?: number, cells: (string|null)[][] }} pat
+     * @param {boolean} withLegend
+     */
+    function renderPattern(pat, withLegend) {
+      const cells = pat.cells;
+      const rows = cells.length;
+      const cols = cells[0]?.length || 0;
+      const used = new Map();
+      const isolate = !withLegend && highlightColorId;
+
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const id = cells[y][x];
+          if (!id) continue;
+          const c = colorById[id];
+          if (!c) continue;
+          if (!used.has(id)) used.set(id, { id, hex: c.hex, count: 0 });
+          used.get(id).count += 1;
+        }
+      }
+
+      const CELL = cellSizeFor(Math.max(cols, rows));
+      const detailBeads = Math.max(cols, rows) < 60;
+      const boardW = PAD * 2 + cols * CELL + (cols - 1) * GAP;
+      const boardH = PAD * 2 + rows * CELL + (rows - 1) * GAP;
+      const legendEntries = [...used.values()].sort((a, b) => b.count - a.count);
+      const legendH = withLegend
+        ? LEGEND_PAD + 20 + legendEntries.length * LEGEND_ROW + LEGEND_PAD
+        : 0;
+
+      canvas.width = boardW;
+      canvas.height = boardH + legendH;
+
+      ctx.fillStyle = "#e4e4ea";
+      ctx.fillRect(0, 0, boardW, boardH);
+
+      // 整板 52×50：先画满钉孔，再铺有色号的豆（空位也是板子的一部分，不是缺块）
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const cx = PAD + x * (CELL + GAP) + CELL / 2;
+          const cy = PAD + y * (CELL + GAP) + CELL / 2;
+          const r = CELL / 2 - (detailBeads ? 0.5 : 0.3);
+          const id = cells[y][x];
+
+          if (!id || !colorById[id]) {
+            drawEmptyPeg(ctx, cx, cy, r);
+            continue;
+          }
+          const c = colorById[id];
+          if (isolate) {
+            if (id === highlightColorId) {
+              if (detailBeads) drawBead(ctx, cx, cy, r, c.hex);
+              else drawBeadSimple(ctx, cx, cy, r, c.hex);
+            } else {
+              drawBeadSimple(ctx, cx, cy, r, "#d1d5db");
+            }
+          } else if (detailBeads) {
+            drawBead(ctx, cx, cy, r, c.hex);
+          } else {
+            drawBeadSimple(ctx, cx, cy, r, c.hex);
+          }
+        }
+      }
+
+      if (withLegend && legendEntries.length) {
+        drawLegend(ctx, boardW, boardH, legendEntries);
+      }
+
+      emptyState.style.display = "none";
+      canvas.style.display = "block";
+      btnExport.disabled = false;
+      if (!withLegend) renderStats(used, cols * rows);
+      return { used, boardH };
+    }
+
+    /**
+     * 空钉孔（完整底板，无豆的格子也占位）
+     */
+    function drawEmptyPeg(c, cx, cy, radius) {
+      c.beginPath();
+      c.arc(cx, cy, radius, 0, Math.PI * 2);
+      c.fillStyle = "#f3f4f6";
+      c.fill();
+      c.strokeStyle = "#c4c4cc";
+      c.lineWidth = Math.max(0.6, radius * 0.08);
+      c.stroke();
+      c.beginPath();
+      c.arc(cx, cy, radius * 0.28, 0, Math.PI * 2);
+      c.fillStyle = "#d4d4dc";
+      c.fill();
+    }
+
+    /**
+     * 带高光/阴影的圆形豆子（小中板）
+     */
+    function drawBead(c, cx, cy, radius, hex) {
+      const [r, g, b] = hexToRgb(hex);
+
+      // 接触阴影
+      c.beginPath();
+      c.ellipse(cx + 0.6, cy + 1.2, radius * 0.95, radius * 0.85, 0, 0, Math.PI * 2);
+      c.fillStyle = "rgba(0,0,0,0.18)";
+      c.fill();
+
+      // 主体径向：边缘略暗 → 中心略亮
+      const body = c.createRadialGradient(
+        cx - radius * 0.28,
+        cy - radius * 0.32,
+        radius * 0.08,
+        cx,
+        cy,
+        radius
+      );
+      body.addColorStop(0, shadeRgb(r, g, b, 1.18));
+      body.addColorStop(0.55, hex);
+      body.addColorStop(1, shadeRgb(r, g, b, 0.72));
+      c.beginPath();
+      c.arc(cx, cy, radius, 0, Math.PI * 2);
+      c.fillStyle = body;
+      c.fill();
+
+      // 镜面高光
+      c.beginPath();
+      c.ellipse(
+        cx - radius * 0.32,
+        cy - radius * 0.36,
+        radius * 0.35,
+        radius * 0.22,
+        -0.5,
+        0,
+        Math.PI * 2
+      );
+      c.fillStyle = "rgba(255,255,255,0.55)";
+      c.fill();
+
+      // 描边
+      c.beginPath();
+      c.arc(cx, cy, radius, 0, Math.PI * 2);
+      c.strokeStyle = "rgba(0,0,0,0.12)";
+      c.lineWidth = 0.8;
+      c.stroke();
+    }
+
+    /** 大板简化豆子：纯色圆 + 细描边，避免上万次渐变卡顿 */
+    function drawBeadSimple(c, cx, cy, radius, hex) {
+      c.beginPath();
+      c.arc(cx, cy, radius, 0, Math.PI * 2);
+      c.fillStyle = hex;
+      c.fill();
+      c.strokeStyle = "rgba(0,0,0,0.15)";
+      c.lineWidth = 0.5;
+      c.stroke();
+    }
+
+    function shadeRgb(r, g, b, factor) {
+      const clamp = (v) => Math.max(0, Math.min(255, Math.round(v * factor)));
+      return `rgb(${clamp(r)},${clamp(g)},${clamp(b)})`;
+    }
+
+    /** 智能图例：仅实际用到的色号 */
+    function drawLegend(c, boardW, boardY, entries) {
+      c.fillStyle = "#ffffff";
+      c.fillRect(0, boardY, boardW, canvas.height - boardY);
+      c.fillStyle = "#111827";
+      c.font = "bold 13px Segoe UI, PingFang SC, Microsoft YaHei, sans-serif";
+      c.fillText(`色号图例（共 ${entries.length} 色）`, LEGEND_PAD, boardY + 18);
+
+      c.font = "12px Segoe UI, PingFang SC, Microsoft YaHei, sans-serif";
+      entries.forEach((e, i) => {
+        const y = boardY + 28 + i * LEGEND_ROW;
+        const x = LEGEND_PAD;
+        c.beginPath();
+        c.arc(x + 8, y + 6, 7, 0, Math.PI * 2);
+        c.fillStyle = e.hex;
+        c.fill();
+        c.strokeStyle = "rgba(0,0,0,0.2)";
+        c.stroke();
+        c.fillStyle = "#374151";
+        c.fillText(`${e.id}  ${e.hex}  ×${e.count}`, x + 22, y + 10);
+      });
+    }
+
+    function renderStats(used, totalSlots) {
+      const items = [...used.values()].sort((a, b) => b.count - a.count);
+      const beadTotal = items.reduce((s, i) => s + i.count, 0);
+      const focus = highlightColorId
+        ? ` · 正在高亮 ${highlightColorId}`
+        : "";
+      statsSummary.textContent = `铺豆 ${beadTotal} / 格子 ${totalSlots}，使用 ${items.length} 种颜色${focus}。`;
+      statsList.innerHTML = "";
+      items.forEach((item) => {
+        const li = document.createElement("li");
+        li.className =
+          "stats-item" + (item.id === highlightColorId ? " active" : "");
+        li.dataset.colorId = item.id;
+        li.title = `点击仅显示 ${item.id}`;
+        li.setAttribute("role", "button");
+        li.tabIndex = 0;
+        li.innerHTML =
+          `<span class="stats-dot" style="background:${item.hex}"></span>` +
+          `<span class="stats-name">${item.id}</span>` +
+          `<span class="stats-count">${item.count}</span>`;
+        statsList.appendChild(li);
+      });
+      btnClearHighlight.classList.toggle("visible", Boolean(highlightColorId));
+      statsEl.classList.add("visible");
+    }
+
+    function setHighlight(colorId) {
+      highlightColorId =
+        colorId && highlightColorId === colorId ? null : colorId || null;
+      if (pattern) renderPattern(pattern, false);
+    }
+
+    statsList.addEventListener("click", (e) => {
+      const li = e.target.closest(".stats-item");
+      if (!li || !pattern) return;
+      setHighlight(li.dataset.colorId);
+    });
+    statsList.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const li = e.target.closest(".stats-item");
+      if (!li || !pattern) return;
+      e.preventDefault();
+      setHighlight(li.dataset.colorId);
+    });
+    btnClearHighlight.addEventListener("click", () => setHighlight(null));
+
+    // ---------- 导出（含智能图例） ----------
+    btnExport.addEventListener("click", () => {
+      if (!pattern) {
+        showMsg("请先生成图纸再导出。", "error");
+        return;
+      }
+      try {
+        // 导出始终全色，不受高亮影响
+        renderPattern(pattern, true);
+        const link = document.createElement("a");
+        const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+        link.download = `拼豆图纸_${stamp}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+        renderPattern(pattern, false);
+        showMsg("已导出含色号图例的 PNG（全色）。", "success");
+      } catch (err) {
+        console.error(err);
+        showMsg("导出失败。", "error");
+      }
+    });
+  </script>
+</body>
+</html>
