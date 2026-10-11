@@ -37,8 +37,9 @@ export function parseLegendCodesWithCounts(text) {
   CODE_COUNT_RE.lastIndex = 0;
   while ((m = CODE_COUNT_RE.exec(upper))) {
     const id = m[1];
+    // 旧代码在此硬删 B8/M2 —— 这两个是色库里真实存在的 MARD 色，
+    // 删掉会让含它们的图纸丢色。坐标轴误读由上游 OCR 纠错处理。
     if (!colorById[id] || seen.has(id)) continue;
-    if (id === "B8" || id === "M2") continue;
     seen.add(id);
     found.push(id);
   }

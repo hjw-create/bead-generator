@@ -4,7 +4,13 @@
  * 1. extractLegendFromRect — 用户框选图例区 → 得到色号列表（可再手改）
  * 2. fillGridFromAlign — 用户对准网格原点/格距 → 只在锁定色板里逐格匹配
  */
-import { nearestColor, hexToRgb, colorById } from "./hamaColors.js";
+import {
+  nearestColor,
+  hexToRgb,
+  colorById,
+  weightedDistance,
+  HAMA_COLORS,
+} from "./hamaColors.js";
 
 export function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
@@ -318,7 +324,7 @@ function cropRect(imgData, x, y, w, h) {
 }
 
 function classifyCellInImage(imgData, x0, y0, x1, y1, palette, allowEmpty) {
-  const sample = sampleCellRgb(imgData, x0, y0, x1, y1);
+  const sample = sampleCellRgb(imgData, x0, y0, x1, y1, palette);
   if (!sample) {
     if (allowEmpty) return null;
     return (
@@ -336,18 +342,22 @@ function classifyCellInImage(imgData, x0, y0, x1, y1, palette, allowEmpty) {
   const hasH1 = palette.some((c) => c.id === "H1");
   const hasH2 = palette.some((c) => c.id === "H2");
 
-  // 近白才归 H1；明显彩色一律进锁定色板最近色（避免粉红被当成 H1）
-  if (bright >= 242 && sat <= 0.1) {
+  // 只把「近纯白」判作纸面/空格。旧阈值 bright>=242 && sat<=0.1 会连
+  // H12 #FFF5ED(bright 245.7/sat 0.07) 这种浅色豆一起抢成 H1。
+  // 收窄到 bright>=250 && sat<=0.04（真纸面实测 sat≈0）：H17/H12/H9/G15 等
+  // 浅色豆全部落回 nearestInPalette，归它们自己。
+  if (bright >= 250 && sat <= 0.04) {
     if (allowEmpty) return null;
     if (hasH1) return "H1";
     if (hasH2) return "H2";
   }
-  if (hasH1 && bright >= 225 && sat <= 0.18) return "H1";
 
+  // 其余一律交给色板最近色：nearestInPalette 用加权 RGB，
+  // H1 只在它真的是最接近的色时才胜出，浅肤色自然归它自己。
   return nearestInPalette(sample.r, sample.g, sample.b, palette);
 }
 
-function sampleCellRgb(imgData, x0, y0, x1, y1) {
+function sampleCellRgb(imgData, x0, y0, x1, y1, palette) {
   const { width, height, data } = imgData;
   x0 = clamp(Math.round(x0), 0, width - 1);
   y0 = clamp(Math.round(y0), 0, height - 1);
@@ -367,6 +377,7 @@ function sampleCellRgb(imgData, x0, y0, x1, y1) {
   const bins = new Map();
   let bestKey = -1;
   let bestW = -1;
+  let inkPixels = 0;
 
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
@@ -384,7 +395,10 @@ function sampleCellRgb(imgData, x0, y0, x1, y1) {
       const r = data[o];
       const g = data[o + 1];
       const b = data[o + 2];
-      if (isInk(r, g, b)) continue;
+      if (inkDistance(r, g, b, palette) > INK_MIN_DIST) {
+        inkPixels++;
+        continue;
+      }
       const key = ((r >> 2) << 12) | ((g >> 2) << 6) | (b >> 2);
       const bin = bins.get(key);
       if (bin) {
@@ -406,7 +420,8 @@ function sampleCellRgb(imgData, x0, y0, x1, y1) {
     }
   }
   const best = bins.get(bestKey);
-  if (!best) return null;
+  // 整格几乎只有墨线（豆像素不足半数）→ 视为空格/线框，不硬猜颜色
+  if (!best || inkPixels > (cols * rows) / 2) return null;
   return {
     r: Math.round(best.r / best.w),
     g: Math.round(best.g / best.w),
@@ -497,8 +512,34 @@ function fillIsolatedHoles(cells, palette) {
   }
 }
 
+/**
+ * 是否墨线/字迹：到色板最近色的加权 RGB 距离超过 `INK_MIN_DIST`。
+ *
+ * 不能只看亮度与饱和度 —— MARD H7 就是纯黑 #000000，H16/B23/H6 也极暗，
+ * 旧阈值 (max<68 && 差<40) 会把这四个真实豆色当墨迹丢弃。
+ * 墨线是纯灰阶且不属于任何一色豆，实测其 ΔRGB 均 > 40；豆色（含 H7）Δ≈0。
+ */
+const INK_MIN_DIST = 40;
+
+/**
+ * 到给定色板的最近色距离（加权 RGB）
+ * @param {{hex:string}[]} palette
+ */
+function inkDistance(r, g, b, palette) {
+  let best = Infinity;
+  for (const c of palette) {
+    const d = weightedDistance(r, g, b, ...hexToRgb(c.hex));
+    if (d < best) best = d;
+  }
+  return Math.sqrt(best);
+}
+
+/**
+ * 是否墨线/字迹（对照全色板）。
+ * 图例提取阶段色板还没锁定，只能用全库。
+ */
 function isInk(r, g, b) {
-  return Math.max(r, g, b) < 68 && Math.max(r, g, b) - Math.min(r, g, b) < 40;
+  return inkDistance(r, g, b, HAMA_COLORS) > INK_MIN_DIST;
 }
 function isPaper(r, g, b) {
   const bright = (r + g + b) / 3;
@@ -506,10 +547,13 @@ function isPaper(r, g, b) {
   return bright > 248 && sat < 0.06;
 }
 function isLikelySwatch(r, g, b) {
-  const bright = (r + g + b) / 3;
-  const sat = (Math.max(r, g, b) - Math.min(r, g, b)) / (Math.max(r, g, b) || 1);
-  return sat >= 0.18 && bright > 40 && bright < 250;
+  // 旧条件还要求 sat >= 0.18，把低饱和的真实色整色丢掉：
+  // M7 #B4A497 sat≈0.16、E21 #BD9DA1 sat≈0.17 都过不了，
+  // 结果含这两个色的图例永远读不出色号。判据改为「非纸非墨」。
+  return !isPaper(r, g, b) && !isInk(r, g, b) && (r + g + b) / 3 > 30;
 }
+
+export { isInk, isPaper, isLikelySwatch, inkDistance, INK_MIN_DIST };
 
 export default {
   extractLegendFromRect,

@@ -33,6 +33,16 @@ npm start
 | `chartImport.js` / `legendOcr.js` | OCR 成品图纸流程 |
 | `sample-chart.png` | 样例图纸 |
 | `mard_chart_tool/` | Python+OpenCV 桌面识别工具 |
+| `mard-selftest.mjs` | 色库/识别判据自检（`npm test`） |
+
+## 自检
+
+```bash
+npm test
+```
+
+无依赖、纯 Node，直接打到生产代码的真实导出函数。覆盖色库自洽、
+墨迹/近白/低饱和判据是否会吞掉真实 MARD 色、图例色号是否整色丢失。
 
 ## Python 工具（可选）
 

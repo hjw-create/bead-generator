@@ -7,6 +7,11 @@ import { createWorker } from "tesseract.js";
 import { parseLegendCodesWithCounts } from "./legendCodes.js";
 import { HAMA_COLORS, colorById, hexToRgb } from "./hamaColors.js";
 
+/** OCR 常见误读色号（色库中真实存在，故只作可疑名单，不无条件删除） */
+const JUNK_IDS = new Set([
+  "E21", "A12", "B26", "M7", "F2", "F23", "F17",
+]);
+
 /** 拼豆图例常见 OCR 错读（8→B 须在 F8(88) 修复之前） */
 export function fixOcrText(t) {
   let s = String(t || "").toUpperCase();
@@ -209,7 +214,8 @@ async function sampleBandSwatches(imageBuf, band) {
 
 function fillUnassignedSwatches(ocrIds, swatches) {
   if (ocrIds.length < 10 || swatches.length < 4) return ocrIds;
-  const JUNK = new Set(["E21", "A12", "B26", "M7", "F2", "F23", "F17"]);
+  // JUNK_IDS 只用于「补漏时别把可疑色号算作已占有」，
+  // 不再对 OCR 结果做无条件删除（见 dropUnsupportedJunk）。
 
   let dr = 0;
   let dg = 0;
@@ -274,7 +280,7 @@ function fillUnassignedSwatches(ocrIds, swatches) {
     let best = null;
     let bestD = Infinity;
     for (const c of HAMA_COLORS) {
-      if (have.has(c.id) || JUNK.has(c.id)) continue;
+      if (have.has(c.id) || JUNK_IDS.has(c.id)) continue;
       const [or, og, ob] = hexToRgb(c.hex);
       const d =
         (cal[i].r - or) ** 2 + (cal[i].g - og) ** 2 + (cal[i].b - ob) ** 2;
@@ -289,6 +295,56 @@ function fillUnassignedSwatches(ocrIds, swatches) {
     }
   }
   return out;
+}
+
+/** 与 OCR 可疑号仲裁时的距离下限（校正后色块与官方色的非加权欧氏 ΔRGB） */
+const JUNK_CONFLICT_DIST = 55;
+
+/**
+ * 只删掉「色块证据不支持」的可疑号。
+ *
+ * 判据：把各色块按已确认色号的平均色偏校正后，若没有任何色块能落到该可疑号
+ * 的官方色附近（ΔRGB > 55），说明这批色块里根本没有它的位置 → 判为坐标轴/
+ * 粘连误读，删除。反之保留，避免误删真实色。
+ *
+ * @param {string[]} ids
+ * @param {{r:number,g:number,b:number}[]} swatches
+ * @returns {string[]}
+ */
+function dropUnsupportedJunk(ids, swatches) {
+  if (!ids.length || !swatches.length) return ids;
+  // 用已确认色号估色偏（与 fillUnassignedSwatches 同法）
+  let dr = 0, dg = 0, db = 0, np = 0;
+  for (const id of ids) {
+    const c = colorById[id];
+    if (!c) continue;
+    const [or, og, ob] = hexToRgb(c.hex);
+    let bestD = Infinity, best = null;
+    for (const sw of swatches) {
+      const d = (sw.r - or) ** 2 + (sw.g - og) ** 2 + (sw.b - ob) ** 2;
+      if (d < bestD) { bestD = d; best = sw; }
+    }
+    if (best) { dr += or - best.r; dg += og - best.g; db += ob - best.b; np++; }
+  }
+  if (np < 3) return ids;
+  dr /= np; dg /= np; db /= np;
+
+  return ids.filter((id) => {
+    if (!JUNK_IDS.has(id)) return true;
+    const c = colorById[id];
+    if (!c) return false;
+    const [or, og, ob] = hexToRgb(c.hex);
+    // 有任意色块在校正后能落到该色附近 → 有证据，保留
+    for (const sw of swatches) {
+      const d = Math.hypot(
+        sw.r + dr - or,
+        sw.g + dg - og,
+        sw.b + db - ob
+      );
+      if (d <= JUNK_CONFLICT_DIST) return true;
+    }
+    return false;
+  });
 }
 
 /**
@@ -334,10 +390,6 @@ export async function ocrLegendCodes(imageBuf) {
     for (const t of texts) {
       for (const id of parseLegendCodesWithCounts(t)) idSet.add(id);
     }
-    // 坐标轴/粘连常见误读
-    for (const junk of ["E21", "A12", "B26", "M7", "F2", "F23"]) {
-      idSet.delete(junk);
-    }
 
     let ids = [...idSet];
 
@@ -347,11 +399,11 @@ export async function ocrLegendCodes(imageBuf) {
       swatches.push(...(await sampleBandSwatches(imageBuf, band)));
     }
 
+    // 色块证据先到位，再用它去仲裁 OCR 结果里的可疑色号：
+    // 色块里找不到支持的才判为误读删除，有支持的（即真实色）保留。
+    ids = dropUnsupportedJunk(ids, swatches);
+
     ids = fillUnassignedSwatches(ids, swatches);
-    // 色补也可能灌进同样的脏号
-    ids = ids.filter(
-      (id) => !["E21", "A12", "B26", "M7", "F2", "F23"].includes(id)
-    );
     // A14 与 A19 屏幕色极近，OCR/分配常漏 A14；有空位且已有 A19 时补上
     if (
       swatches.length >= 8 &&
@@ -364,9 +416,7 @@ export async function ocrLegendCodes(imageBuf) {
     // 若仍缺且有空位，再补一次
     if (ids.length < swatches.length) {
       ids = fillUnassignedSwatches(ids, swatches);
-      ids = ids.filter(
-        (id) => !["E21", "A12", "B26", "M7", "F2", "F23"].includes(id)
-      );
+      ids = dropUnsupportedJunk(ids, swatches);
     }
 
     return {

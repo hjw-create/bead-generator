@@ -6,7 +6,8 @@
   "description": "Hama 兼容 221 色拼豆图纸生成器（本地智能算法）",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "test": "node mard-selftest.mjs"
   },
   "dependencies": {
     "express": "^4.21.2",

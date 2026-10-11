@@ -1933,6 +1933,47 @@ function ensurePaletteRgb() {
 }
 
 /**
+ * 每个色号在色板内的最近邻（含自身），K 个。
+ *
+ * LUT 只按量化格「中心」定色，查询点未必落在格中心；直接返回格心的最近色
+ * 会系统性偏移（实测 221 色里有 G15 被判成 H21）。用格心色板的近邻做一次
+ * 精算即可消掉这一档误差，成本仍为常数。
+ */
+const LUT_NEIGHBOR_K = 8;
+/** @type {Uint16Array[]} */
+const colorNeighbors = [];
+
+/** @param {number} k @returns {Uint16Array} */
+function getColorNeighbors(k) {
+  let list = colorNeighbors[k];
+  if (list) return list;
+  const rgb = ensurePaletteRgb();
+  const n = HAMA_COLORS.length;
+  const kk = Math.min(k, n);
+  list = Array.from({ length: n }, (_, i) => {
+    const order = [];
+    for (let j = 0; j < n; j++) {
+      if (j === i) continue;
+      order.push([
+        j,
+        weightedDistance(
+          rgb[i * 3],
+          rgb[i * 3 + 1],
+          rgb[i * 3 + 2],
+          rgb[j * 3],
+          rgb[j * 3 + 1],
+          rgb[j * 3 + 2]
+        ),
+      ]);
+    }
+    order.sort((a, b) => a[1] - b[1]);
+    return Uint16Array.from([i, ...order.slice(0, kk - 1).map((o) => o[0])]);
+  });
+  colorNeighbors[k] = list;
+  return list;
+}
+
+/**
  * 构建 RGB → 色板索引查找表（启动时调用一次即可）
  * @returns {Uint16Array}
  */
@@ -1990,9 +2031,28 @@ function rgbToLutIndex(r, g, b) {
  */
 export function nearestColor(r, g, b) {
   if (!lut) buildColorLUT();
-  const index = lut[rgbToLutIndex(r & 255, g & 255, b & 255)];
-  const c = HAMA_COLORS[index];
-  return { id: c.id, name: c.name, hex: c.hex, type: c.type, index };
+  const seed = lut[rgbToLutIndex(r & 255, g & 255, b & 255)];
+  const near = getColorNeighbors(LUT_NEIGHBOR_K)[seed];
+  const rgb = paletteRgb;
+  let best = seed;
+  let bestD = Infinity;
+  for (let k = 0; k < near.length; k++) {
+    const i = near[k];
+    const d = weightedDistance(
+      r,
+      g,
+      b,
+      rgb[i * 3],
+      rgb[i * 3 + 1],
+      rgb[i * 3 + 2]
+    );
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  }
+  const c = HAMA_COLORS[best];
+  return { id: c.id, name: c.name, hex: c.hex, type: c.type, index: best };
 }
 
 /** 暴力匹配（仅用于校验 LUT 正确性，业务代码勿用） */
